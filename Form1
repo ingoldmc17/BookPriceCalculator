@@ -1,0 +1,175 @@
+Imports System.ComponentModel
+Imports System.Drawing.Printing
+Imports Microsoft.Office.Interop
+
+Public Class Form1
+
+    Dim objWord As New Word.Application
+    Dim objDoc As New Word.Document
+    Dim memoryImage As Bitmap
+
+    Private Sub CaptureScreen()
+        ' Sub copied and pasted from Professor Ken Clifton's Week 5 Materials Checklist
+        Dim myGraphics As Graphics = Me.CreateGraphics()
+        Dim s As Size = Me.Size
+        memoryImage = New Bitmap(s.Width, s.Height, myGraphics)
+        Dim memoryGraphics As Graphics = Graphics.FromImage(memoryImage)
+        memoryGraphics.CopyFromScreen(Me.Location.X, Me.Location.Y, 0, 0, s)
+    End Sub
+
+    Private Sub pdPrintForm_PrintPage(sender As Object, e As PrintPageEventArgs) Handles pdPrintForm.PrintPage
+        e.Graphics.DrawImage(memoryImage, 0, 0)
+    End Sub
+
+    Private Sub btnPrint_Click(sender As Object, e As EventArgs) Handles btnPrint.Click
+        CaptureScreen()
+        pdPrintForm.Print()
+    End Sub
+
+    ' Calculates the user's total price and discount based on textbox entries
+    Private Sub btnCalculate_Click(sender As Object, e As EventArgs) Handles btnCalculate.Click
+
+        ' Check to make sure the user has entered all fields
+        If txtQuantity.Text = "" Or
+                txtTitle.Text = "" Or
+                txtPrice.Text = "" Then
+            Exit Sub
+        End If
+
+        ' Dim some variables to make our code cleaner
+        Dim intQuantity As Integer = txtQuantity.Text
+        Dim strTitle As String = txtTitle.Text
+        Dim dblPrice As Double = txtPrice.Text
+
+        txtPrice.Text = dblPrice.ToString("c")
+
+        ' Show the second groupBox and fill in values
+        GroupBox2.Visible = True
+        lblTotalPrice.Text = (intQuantity * dblPrice).ToString("c")
+        lblDiscount.Text = (lblTotalPrice.Text * 0.15).ToString("c")
+        lblOrderTotal.Text = (lblTotalPrice.Text * 0.85).ToString("c")
+
+    End Sub
+
+    Private Sub btnClear_Click(sender As Object, e As EventArgs) Handles btnClear.Click
+
+        ' Clear all labels and textboxes. Hide groupBox2. Return focus to first textbox
+        txtQuantity.Clear()
+        txtTitle.Clear()
+        txtPrice.Clear()
+        lblTotalPrice.Text = ""
+        lblDiscount.Text = ""
+        lblOrderTotal.Text = ""
+        GroupBox2.Visible = False
+        txtQuantity.Focus()
+
+        ' Close Word Doc if it's open
+        Try
+            objWord.Documents("receipt.dot").Close(Word.WdSaveOptions.wdDoNotSaveChanges)
+            objWord.Quit()
+        Catch ex As Exception
+        End Try
+
+    End Sub
+
+    Private Sub btnExit_Click(sender As Object, e As EventArgs) Handles btnExit.Click
+        ' Begin closing event for the form
+        Me.Close()
+    End Sub
+
+    Private Sub Form1_Closing(sender As Object, e As CancelEventArgs) Handles Me.Closing
+        ' Send a message to the user before the form closes
+        MessageBox.Show("Matt Ingold hopes you enjoyed the program!")
+
+        ' If there's a Word Doc open, close it without saving
+        Try
+            objWord.Documents("receipt.dot").Close(Word.WdSaveOptions.wdDoNotSaveChanges)
+            objWord.Quit()
+        Catch ex As Exception
+        End Try
+
+    End Sub
+
+    Private Sub txtPrice_KeyPress(sender As Object, e As KeyPressEventArgs) Handles txtPrice.KeyPress
+        ' Make sure that the user can only enter input that can be converted to a Double
+        If Not IsNumeric(e.KeyChar) And
+        Not Asc(e.KeyChar) = Keys.Back And
+        Not Asc(e.KeyChar) = 46 Then
+            e.KeyChar = ""
+        End If
+
+        ' Prevent the user from entering multiple periods.
+        If txtPrice.Text.Contains(".") And
+            Asc(e.KeyChar) = 46 Then
+            e.KeyChar = ""
+        End If
+    End Sub
+
+    Private Sub txtQuantity_KeyPress(sender As Object, e As KeyPressEventArgs) Handles txtQuantity.KeyPress
+        ' Make sure that the user can only enter integers as a quantity
+        If Not IsNumeric(e.KeyChar) And
+            Not Asc(e.KeyChar) = Keys.Back Then
+            e.KeyChar = ""
+        End If
+    End Sub
+
+    Private Sub timClock_Tick(sender As Object, e As EventArgs) Handles timClock.Tick
+        ' Display today's date in a label
+        lblClock.Text = Today.ToLongDateString
+    End Sub
+
+    ' The btnViewReceipt.Click should open a Word document in Print Preview Mode that
+    ' displays the user's receipt for the book purchase.
+    Private Sub btnViewReceipt_Click(sender As Object, e As EventArgs) Handles btnViewReceipt.Click
+
+        ' Make sure that the user has calculated his/her total first
+        If lblTotalPrice.Text = "" Or
+                lblDiscount.Text = "" Or
+                lblTotalPrice.Text = "" Then
+            Exit Sub
+        End If
+
+        ' Open Word document with receipt template. Fill in the receipt with order details.
+        ' Show the document zoomed, at the top of the page, in print preview mode
+        objDoc = objWord.Documents.Open(Application.StartupPath & "\receipt.dot")
+        With objWord
+
+            .Visible = True
+
+            .ActiveWindow.Selection.Find.Execute("<Time>")
+            .ActiveWindow.Selection.TypeText(Now.ToShortTimeString())
+
+            .ActiveWindow.Selection.Find.Execute("<Date>")
+            .ActiveWindow.Selection.TypeText(Now.ToShortDateString())
+
+            .ActiveWindow.Selection.Find.Execute("<Quantity>")
+            .ActiveWindow.Selection.TypeText(txtQuantity.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<Item>")
+            .ActiveWindow.Selection.TypeText(txtTitle.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<Price>")
+            .ActiveWindow.Selection.TypeText(txtPrice.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<TotalPrice>")
+            .ActiveWindow.Selection.TypeText(lblTotalPrice.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<Discount>")
+            .ActiveWindow.Selection.TypeText(lblDiscount.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<OrderTotal>")
+            .ActiveWindow.Selection.TypeText(lblOrderTotal.Text)
+
+            .ActiveWindow.Selection.Find.Execute("<OrderTotal>")
+            .ActiveWindow.Selection.TypeText(lblOrderTotal.Text)
+
+            With objDoc
+                .PrintPreview()
+                .ActiveWindow.View.Zoom.Percentage = 100
+                .ActiveWindow.PageScroll(Up:=1)
+            End With
+        End With
+
+    End Sub
+
+End Class
